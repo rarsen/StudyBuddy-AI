@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     
     # OpenAI Configuration
     OPENAI_API_KEY: str
-    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL")
-    OPENAI_MAX_TOKENS: int = os.getenv("OPENAI_MAX_TOKENS")
-    OPENAI_TEMPERATURE: float = os.getenv("OPENAI_TEMPERATURE")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
+    OPENAI_MAX_TOKENS: int = int(os.getenv("OPENAI_MAX_TOKENS", "1000"))
+    OPENAI_TEMPERATURE: float = float(os.getenv("OPENAI_TEMPERATURE", "0.5"))
     
     class Config:
         env_file = ".env"
