@@ -4,7 +4,7 @@ services:
     name: studybuddy-backend
     env: docker
     dockerfilePath: ./backend/Dockerfile
-    buildContext: ./backend
+    dockerContext: ./backend
     envVars:
       - key: DATABASE_URL
         sync: false
