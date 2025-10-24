@@ -30,7 +30,6 @@ services:
   - type: web
     name: studybuddy-frontend
     env: static
-    region: frankfurt
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: ./frontend/dist
     routes:
