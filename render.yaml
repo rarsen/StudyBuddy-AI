@@ -2,10 +2,9 @@ services:
   # Backend API Service
   - type: web
     name: studybuddy-backend
-    env: python
-    runtime: python-3.11
-    buildCommand: pip install --upgrade pip && pip install -r backend/requirements.txt
-    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    buildContext: ./backend
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -19,12 +18,6 @@ services:
         value: false
       - key: BACKEND_CORS_ORIGINS
         value: https://studybuddy-frontend.onrender.com,http://localhost:5173
-      - key: OPENAI_MODEL
-        value: gpt-4-turbo-preview
-      - key: OPENAI_MAX_TOKENS
-        value: 4000
-      - key: OPENAI_TEMPERATURE
-        value: 0.7
     healthCheckPath: /health
 
   # Frontend Service
