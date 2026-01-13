@@ -1,5 +1,13 @@
 # StudyBuddy AI - AI-Powered Educational Assistant
 
+## Video Usage
+
+
+
+https://github.com/user-attachments/assets/930d5d67-864b-4e50-9d02-ee9850daf046
+
+
+
 ## Problem Statement
 
 Many students struggle with exam preparation due to:
