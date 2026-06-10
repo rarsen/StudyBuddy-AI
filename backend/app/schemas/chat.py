@@ -5,7 +5,7 @@ Pydantic models for chat-related API operations
 
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from app.db.models import MessageRole, Subject
 
 
@@ -23,6 +23,16 @@ class MessageCreate(MessageBase):
     subject: Optional[Subject] = None
 
 
+class Citation(BaseModel):
+    """One source the assistant cited inline as [n]."""
+    chunk_id: int
+    document_id: int
+    document_title: Optional[str] = None
+    page: Optional[int] = None
+    score: float
+    snippet: str
+
+
 class MessageResponse(MessageBase):
     """
     Schema for message response data
@@ -34,6 +44,7 @@ class MessageResponse(MessageBase):
     tokens_used: Optional[int] = None
     model_used: Optional[str] = None
     response_time: Optional[int] = None
+    citations: Optional[List[Citation]] = None
     created_at: datetime
 
     model_config = ConfigDict(
@@ -45,10 +56,11 @@ class MessageResponse(MessageBase):
 class ChatSessionCreate(BaseModel):
     """
     Schema for creating a new chat session
-    Optional title and subject for organization
+    Optional title, subject, and a grounding document for RAG-scoped answers.
     """
     title: Optional[str] = Field("New Study Session", max_length=255)
     subject: Optional[Subject] = Subject.OTHER
+    document_id: Optional[int] = None
 
 
 class ChatSessionUpdate(BaseModel):
@@ -59,6 +71,7 @@ class ChatSessionUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=255)
     subject: Optional[Subject] = None
     is_active: Optional[bool] = None
+    document_id: Optional[int] = None
 
 
 class ChatSessionResponse(BaseModel):
@@ -72,6 +85,7 @@ class ChatSessionResponse(BaseModel):
     subject: Subject
     is_active: bool
     message_count: int
+    document_id: Optional[int] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     messages: Optional[List[MessageResponse]] = None

@@ -46,9 +46,40 @@ app = create_application()
 
 @app.on_event("startup")
 async def startup_event():
+    from sqlalchemy import text
+
     logger.info(f"Starting {settings.PROJECT_NAME}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     try:
+        with engine.begin() as conn:
+            # Enable pgvector (required for semantic search / RAG)
+            try:
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                logger.info("pgvector extension ready")
+            except Exception as ext_err:
+                logger.warning(
+                    "Could not enable pgvector extension (RAG will fail). "
+                    f"Error: {ext_err}"
+                )
+
+            # Lightweight idempotent schema patches for columns added after
+            # the initial `create_all`. Real production would use Alembic;
+            # this keeps `docker compose up` working against a legacy DB.
+            schema_patches = (
+                "ALTER TABLE IF EXISTS chat_sessions "
+                "ADD COLUMN IF NOT EXISTS document_id integer "
+                "REFERENCES documents(id) ON DELETE SET NULL",
+                "ALTER TABLE IF EXISTS chat_messages "
+                "ADD COLUMN IF NOT EXISTS citations jsonb",
+                "ALTER TABLE IF EXISTS chat_messages "
+                "ADD COLUMN IF NOT EXISTS tool_calls jsonb",
+            )
+            for sql in schema_patches:
+                try:
+                    conn.execute(text(sql))
+                except Exception as patch_err:
+                    logger.warning(f"Schema patch skipped: {patch_err}")
+
         Base.metadata.create_all(bind=engine)
         table_names = [table.name for table in Base.metadata.sorted_tables]
         logger.info(f"Database tables initialized: {', '.join(table_names)}")
@@ -59,7 +90,7 @@ async def startup_event():
 @app.get("/", tags=["Root"])
 async def root():
     return {
-        "message": "Welcome to StudyBuddy AI API",
+        "message": "Welcome to MindSpark API",
         "version": "1.0.0",
         "status": "operational",
         "docs": "/docs"

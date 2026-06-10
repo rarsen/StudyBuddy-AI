@@ -1,4 +1,4 @@
-# StudyBuddy AI - AI-Powered Educational Assistant
+# MindSpark - AI-Powered Educational Assistant
 
 ## Video Usage
 
@@ -21,7 +21,7 @@ Many students struggle with exam preparation due to:
 
 ## Solution Overview
 
-StudyBuddy AI is an intelligent chatbot that provides:
+MindSpark is an intelligent chatbot that provides:
 - **Personalized Learning Support**: AI-powered explanations tailored to student's level
 - **24/7 Availability**: Instant help anytime, anywhere
 - **Interactive Q&A**: Natural conversation interface for asking questions

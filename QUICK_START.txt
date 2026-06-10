@@ -109,7 +109,7 @@
 
 🎯 DEMO ACCOUNT SUGGESTIONS:
 
-   Email:    demo@studybuddy.ai
+   Email:    demo@mindspark.ai
    Username: demostudent
    Password: demo123456
    
@@ -123,7 +123,7 @@
 
 🎓 PROJECT INFO:
 
-   Name:        StudyBuddy AI
+   Name:        MindSpark
    Purpose:     AI-powered educational assistant
    Problem:     Limited access to tutoring
    Solution:    24/7 AI tutor available to all students

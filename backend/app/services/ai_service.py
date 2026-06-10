@@ -1,252 +1,284 @@
+"""
+AI service — the model-facing layer.
+
+Responsibilities:
+    - Wrap OpenAI chat completion (or a deterministic mock fallback).
+    - Render retrieved RAG chunks as a numbered Source block the model can cite.
+    - Enforce a studying-focused system prompt with explicit citation rules.
+
+The mock path exists so the whole app is runnable offline — important for
+grading, defense demos, and CI. Mock responses are intentionally simple; when
+RAG context is supplied they splice in a visible [1] citation so the end-to-end
+citation pipeline can be demoed without an API key.
+"""
+
+from __future__ import annotations
+
 import logging
-from typing import List, Dict
-import time
 import random
+import re
+import time
+from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Check if we should use mock AI (when OpenAI key is not set or is placeholder)
-USE_MOCK_AI = (
-    not settings.OPENAI_API_KEY or 
-    settings.OPENAI_API_KEY.endswith("here") or
-    settings.OPENAI_API_KEY == "your-api-key" or
-    settings.OPENAI_API_KEY.startswith("mock-") or
-    "mock" in settings.OPENAI_API_KEY.lower()
-)
+
+def _is_mock_key() -> bool:
+    k = (settings.OPENAI_API_KEY or "").lower()
+    return (
+        not k
+        or k.endswith("here")
+        or k == "your-api-key"
+        or k.startswith("mock-")
+        or "mock" in k
+    )
+
+
+USE_MOCK_AI = _is_mock_key()
+
+
+BASE_SYSTEM_PROMPT = """You are MindSpark, an advanced educational companion specialized in exam preparation and deep conceptual learning.
+
+CORE MISSION
+Help students not just memorize, but truly understand material in a way that builds lasting knowledge and exam confidence.
+
+TEACHING APPROACH
+1. Diagnostic understanding — assess the student's level and knowledge gaps before explaining.
+2. Explanation framework — start with the big picture, then zoom in. Use analogies, step-by-step breakdowns, and real-world applications.
+3. Active learning — ask the student to restate ideas in their own words, pose practice questions mirroring exam formats, and surface common misconceptions.
+4. Exam-specific strategies — identify high-yield topics, teach question interpretation and answer structure, and share time-management tips.
+5. Metacognitive development — teach students *how* to study, not just *what* to study.
+
+RESPONSE STRUCTURE
+- For concepts: simple definition, detailed explanation, example or analogy, common pitfalls, quick self-check question.
+- For problems: reframe what is actually being asked, outline the approach, work step-by-step, verify the answer, give a similar practice problem.
+
+STYLE
+- Encouraging, patient, never condescending. Celebrate progress, normalize struggle.
+- Use bold for key terms, bullets for lists, numbering for sequences.
+- If uncertain, say so clearly instead of guessing.
+- Never do a student's take-home exam for them — coach them through it.
+"""
+
+
+CITATION_RULES = """SOURCE-GROUNDED ANSWERING
+You have been given excerpts from the student's own study materials in a "Sources" block below. The rules are strict:
+
+1. Prefer the sources. When the answer is present in the sources, use them — do not contradict them.
+2. Cite inline. After any claim drawn from a source, place a citation marker in square brackets, e.g. [1] or [2][3]. The number matches the source list. Place the marker at the end of the sentence or phrase.
+3. Do not invent sources. Only use the numbers present in the Sources block. Never write [4] if there is no source 4.
+4. Admit gaps. If the sources do not cover the question, say so explicitly (e.g. "Your notes don't cover this directly, but …") and then answer from general knowledge without citation markers.
+5. Quote sparingly. Paraphrase in your own voice; short direct quotes are fine when precision matters.
+6. Never dump the sources verbatim. Teach — cite.
+"""
+
+
+def _render_sources_block(hits: List[Dict[str, Any]]) -> str:
+    """
+    Render retrieved chunks as a numbered block the model can cite as [n].
+
+    The numbering here is the numbering the student will see in the UI, so it
+    must match exactly what chat_service persists on the assistant message.
+    """
+    lines = ["### Sources (use [n] to cite)"]
+    for i, h in enumerate(hits, start=1):
+        title = h.get("document_title") or f"Document #{h.get('document_id')}"
+        page = h.get("page")
+        loc = f", p. {page}" if page else ""
+        score = h.get("score")
+        # Snippet is truncated; the UI shows the full text on click.
+        snippet = (h.get("snippet") or "").strip().replace("\n", " ")
+        if len(snippet) > 900:
+            snippet = snippet[:900] + "…"
+        lines.append(f"[{i}] {title}{loc} (score {score})\n{snippet}")
+    return "\n\n".join(lines)
 
 
 class AIService:
-    
-    def __init__(self):
+    def __init__(self) -> None:
         self.use_mock = USE_MOCK_AI
-        
+        self.client = None
         if not self.use_mock:
             from openai import OpenAI
+
             self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
         else:
-            self.client = None
-            logger.warning("Using MOCK AI responses (OpenAI not configured)")
-            
+            logger.warning("AIService using MOCK responses (no OpenAI key configured)")
+
         self.model = settings.OPENAI_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
         self.temperature = settings.OPENAI_TEMPERATURE
-        
-        self.system_prompt = """You are StudyBuddy AI, an advanced educational companion specialized in exam preparation and deep conceptual learning.
 
-CORE MISSION:
-Help students not just memorize, but truly understand material in a way that builds lasting knowledge and exam confidence.
+    # ------------------------------------------------------------------ #
+    # Prompt construction
+    # ------------------------------------------------------------------ #
 
-TEACHING APPROACH:
-
-1. Diagnostic Understanding
-   - Begin by assessing: "What's your current understanding of [topic]?" or "What specific aspect is challenging?"
-   - Identify knowledge gaps before explaining
-   - Recognize the student's learning level (high school, undergraduate, graduate)
-   - Adapt to their exam type (multiple choice, essay, practical, oral)
-
-2. Explanation Framework
-   - Start with the big picture, then zoom into details
-   - Use the "ELI5 to Expert" gradient: begin simply, then add layers of complexity
-   - Employ multiple explanation modes:
-     * Analogies and metaphors (relate to everyday experiences)
-     * Visual descriptions (describe diagrams, flowcharts, concept maps)
-     * Step-by-step breakdowns
-     * Real-world applications ("Why does this matter?")
-   - Highlight common misconceptions and how to avoid them
-
-3. Active Learning Techniques
-   - After explaining, ask: "Can you explain this back to me in your own words?"
-   - Pose practice questions that mirror exam formats
-   - Create mini-quizzes to test understanding
-   - Suggest memory techniques: mnemonics, spaced repetition cues, linking methods
-   - Encourage the Feynman Technique: if you can't explain it simply, you don't understand it well enough
-
-4. Exam-Specific Strategies
-   - Identify high-yield topics (what's most likely to be tested)
-   - Teach exam technique: time management, question interpretation, answer structure
-   - Provide frameworks for different question types (compare/contrast, analyze, evaluate)
-   - Share strategic tips: "In essay questions, spend 5 minutes planning your answer first"
-   - Help create study schedules based on time until exam
-
-5. Metacognitive Development
-   - Teach students HOW to study, not just WHAT to study
-   - Encourage self-testing over re-reading
-   - Promote understanding of their own learning style
-   - Ask reflective questions: "What study method has worked best for you before?"
-
-RESPONSE STRUCTURE:
-
-For Concept Explanations:
-1. Simple definition (1-2 sentences)
-2. Detailed explanation with context
-3. Example or analogy
-4. Common pitfalls or misconceptions
-5. Connection to related concepts
-6. Quick self-check question
-
-For Problem-Solving:
-1. Identify what the question is really asking
-2. Outline the approach/strategy
-3. Work through step-by-step with reasoning
-4. Verify the answer makes sense
-5. Provide a similar practice problem
-
-COMMUNICATION STYLE:
-- Encouraging and patient, never condescending
-- Celebrate small wins: "Great question!" or "You're thinking about this the right way"
-- Normalize struggle: "This is a tricky concept that many students find challenging"
-- Use conversational language while maintaining academic accuracy
-- Vary sentence length for readability
-- Use formatting strategically: bold for key terms, bullet points for lists, numbering for sequences
-
-SPECIAL CAPABILITIES:
-- Create custom mnemonics for memorization
-- Generate practice questions at various difficulty levels
-- Suggest study techniques for specific subjects (STEM vs. humanities approaches differ)
-- Provide exam anxiety management tips when appropriate
-- Offer time management strategies for both studying and test-taking
-- Break down complex problems into manageable sub-problems
-
-QUALITY CONTROLS:
-- If uncertain about a fact, say: "I'm not completely certain about this specific detail. Let me break down what I do know confidently..."
-- For subjects requiring current information (current events, recent scientific discoveries), acknowledge your knowledge cutoff
-- When multiple valid perspectives exist, present them fairly
-- Distinguish between memorization-appropriate content (formulas, dates) and understanding-appropriate content (concepts, processes)
-- Never provide direct answers to take-home exams or assignments meant to be done independently
-
-ADAPTIVE DIFFICULTY:
-- Monitor comprehension through dialogue
-- If student seems lost: simplify further, use more basic analogies
-- If student grasps quickly: introduce advanced nuances, pose harder questions
-- Match vocabulary to student level while gradually introducing proper terminology
-
-RED FLAGS TO AVOID:
-- Don't just give answers without explanation
-- Don't overwhelm with information dumps
-- Don't use jargon without defining it
-- Don't assume prior knowledge without checking
-- Don't make students feel inadequate for not understanding
-
-ENGAGEMENT TECHNIQUES:
-- Ask Socratic questions that guide discovery
-- Use curiosity hooks: "Here's something interesting about this..."
-- Connect material to student interests when possible
-- Provide the "so what" factor: why this matters beyond the exam
-
-Remember: Every interaction is an opportunity to build confidence, deepen understanding, and develop lifelong learning skills. You're not just helping them pass an exam—you're teaching them how to learn."""
-    
-    def _generate_mock_response(self, user_message: str, subject: str = None) -> Dict[str, any]:
-        responses = [
-            "Great question! Let me explain this concept step by step:\n\n1. First, we need to understand the basic principles\n2. Then, we can apply them to solve the problem\n3. Finally, let's look at some practical examples\n\nDoes this help clarify things?",
-            
-            "That's an interesting topic! Here's a simplified explanation:\n\nThe key concept is that everything connects to a fundamental principle. Think of it like building blocks - each piece fits together to form the complete picture.\n\nWould you like me to elaborate on any specific part?",
-            
-            "Excellent question for exam preparation! Here's what you need to know:\n\n**Main Points:**\n- Point 1: The foundational concept\n- Point 2: How it applies in practice\n- Point 3: Common mistakes to avoid\n\n**Example:** Imagine you have a real-world scenario...\n\nLet me know if you need more details!",
-            
-            "I'd be happy to help you understand this! Let me break it down:\n\n### Overview\nThis concept is fundamental to understanding the larger topic.\n\n### Key Details\n- It involves several interconnected ideas\n- Each part builds on the previous one\n- Practice is essential for mastery\n\n### Tips for Studying\n1. Review the basics first\n2. Work through examples\n3. Test yourself regularly\n\nWhat specific aspect would you like to explore further?",
-        ]
-        
-        time.sleep(random.uniform(1.0, 2.5))
-        
-        content = random.choice(responses)
-        
+    def _build_system_prompt(
+        self,
+        subject: Optional[str],
+        hits: Optional[List[Dict[str, Any]]],
+    ) -> str:
+        parts: List[str] = [BASE_SYSTEM_PROMPT]
         if subject:
-            subject_name = subject.replace('_', ' ').title()
-            content = f"**{subject_name} Study Topic**\n\n" + content
-        
+            parts.append(f"CURRENT SUBJECT CONTEXT: {subject.replace('_', ' ').title()}")
+        if hits:
+            parts.append(CITATION_RULES)
+            parts.append(_render_sources_block(hits))
+        return "\n\n".join(parts)
+
+    # ------------------------------------------------------------------ #
+    # Mock generation
+    # ------------------------------------------------------------------ #
+
+    def _mock_response(
+        self,
+        user_message: str,
+        subject: Optional[str],
+        hits: Optional[List[Dict[str, Any]]],
+    ) -> Dict[str, Any]:
+        """
+        Deterministic-ish mock. If RAG hits exist, splice in a [1] citation so
+        the full UI pipeline is demoable without an API key.
+        """
+        time.sleep(random.uniform(0.6, 1.4))
+
+        if hits:
+            top = hits[0]
+            title = top.get("document_title") or "your notes"
+            page = top.get("page")
+            loc = f", p. {page}" if page else ""
+            snippet = (top.get("snippet") or "").strip()
+            if len(snippet) > 220:
+                snippet = snippet[:220] + "…"
+            content = (
+                f"Based on **{title}**{loc}, here's what's relevant to your question:\n\n"
+                f"> {snippet} [1]\n\n"
+                f"**In plain terms:** this passage directly addresses \"{user_message.strip()[:80]}\". "
+                f"Try to restate the idea in your own words — then we can check it together.\n\n"
+                f"_Offline demo mode: add an OpenAI API key for full responses._"
+            )
+        else:
+            responses = [
+                "Great question! Let me break this down:\n\n1. Start with the underlying principle\n2. Apply it to the specific case\n3. Check the answer makes sense\n\nWhich step would you like me to expand?",
+                "Let's approach this step by step:\n\n- **Key idea:** identify what the problem is really asking\n- **Strategy:** pick the right framework\n- **Execution:** work through it carefully\n\nCan you try restating the question in your own words?",
+                "Good instinct to ask. Here's a compact explanation:\n\n**Overview** — a short definition.\n**Why it matters** — how it connects to what you already know.\n**Practice** — try a mini-example and I'll check it.",
+            ]
+            content = random.choice(responses)
+            if subject:
+                content = f"**{subject.replace('_', ' ').title()}**\n\n" + content
+
         return {
             "content": content,
-            "tokens_used": random.randint(150, 300),
-            "model_used": "mock-gpt-3.5-turbo",
-            "response_time": random.randint(1500, 2500)
+            "tokens_used": random.randint(120, 260),
+            "model_used": "mock-gpt",
+            "response_time": random.randint(700, 1600),
         }
+
+    # ------------------------------------------------------------------ #
+    # Public API
+    # ------------------------------------------------------------------ #
 
     async def generate_response(
         self,
         user_message: str,
-        conversation_history: List[Dict[str, str]] = None,
-        subject: str = None
-    ) -> Dict[str, any]:
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        subject: Optional[str] = None,
+        rag_hits: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate an assistant response. If rag_hits is passed, they are rendered
+        into the system prompt and the model is instructed to cite [n].
+        """
         if self.use_mock:
-            logger.info(f"Generating MOCK AI response for message: '{user_message[:50]}...'")
-            return self._generate_mock_response(user_message, subject)
-        
+            logger.info("MOCK AI: %d history msgs, %d hits", len(conversation_history or []), len(rag_hits or []))
+            return self._mock_response(user_message, subject, rag_hits)
+
         try:
-            start_time = time.time()
-            
-            messages = [{"role": "system", "content": self.system_prompt}]
-            
-            if subject:
-                subject_context = f"\n\nCurrent subject context: {subject.replace('_', ' ').title()}"
-                messages[0]["content"] += subject_context
-            
+            start = time.time()
+            system_prompt = self._build_system_prompt(subject, rag_hits)
+            messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+
             if conversation_history:
-                messages.extend(conversation_history)
-            
+                # Drop tool messages (not used yet); cap history length
+                for m in conversation_history[-12:]:
+                    role = m.get("role")
+                    if role in ("user", "assistant") and m.get("content"):
+                        messages.append({"role": role, "content": m["content"]})
+
             messages.append({"role": "user", "content": user_message})
-            
-            logger.info(f"Generating AI response for message: '{user_message[:50]}...'")
-            
-            response = self.client.chat.completions.create(
+
+            logger.info(
+                "AI call: model=%s, history=%d, hits=%d",
+                self.model, len(messages) - 2, len(rag_hits or []),
+            )
+
+            resp = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 max_tokens=self.max_tokens,
-                temperature=self.temperature
+                temperature=self.temperature,
             )
-            
-            response_time = int((time.time() - start_time) * 1000)
-            
-            assistant_message = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens
-            
-            logger.info(f"AI response generated successfully. Tokens: {tokens_used}, Time: {response_time}ms")
-            
+
+            response_time = int((time.time() - start) * 1000)
+            content = resp.choices[0].message.content or ""
+            tokens_used = resp.usage.total_tokens if resp.usage else 0
+
             return {
-                "content": assistant_message,
+                "content": content,
                 "tokens_used": tokens_used,
                 "model_used": self.model,
-                "response_time": response_time
+                "response_time": response_time,
             }
-            
         except Exception as e:
-            logger.error(f"Error generating AI response: {str(e)}")
-            raise Exception(f"Failed to generate AI response: {str(e)}")
-    
+            logger.exception("AI generation failed")
+            raise Exception(f"Failed to generate AI response: {e}")
+
     async def generate_session_title(self, first_message: str) -> str:
         if self.use_mock:
             words = first_message.split()[:5]
-            title = " ".join(words)
+            title = " ".join(words).strip()
             if len(title) > 50:
                 title = title[:47] + "..."
             return title or "Study Session"
-        
+
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
+            resp = self.client.chat.completions.create(
+                model="gpt-4.1-nano",
                 messages=[
                     {
                         "role": "system",
-                        "content": "Generate a short, descriptive title (max 6 words) for a study session based on the student's question. Only return the title, nothing else."
+                        "content": "Generate a short, descriptive title (max 6 words) for a study session based on the student's question. Only return the title, nothing else.",
                     },
-                    {
-                        "role": "user",
-                        "content": first_message
-                    }
+                    {"role": "user", "content": first_message},
                 ],
                 max_tokens=20,
-                temperature=0.7
+                temperature=0.6,
             )
-            
-            title = response.choices[0].message.content.strip()
-            return title[:100]
-            
+            title = (resp.choices[0].message.content or "").strip().strip('"')
+            return title[:100] or "Study Session"
         except Exception as e:
-            logger.error(f"Error generating session title: {str(e)}")
+            logger.error("Title generation failed: %s", e)
             return "Study Session"
 
 
-# Create singleton instance
-ai_service = AIService()
+# Used by chat_service to strip citation markers that reference numbers the
+# model hallucinated (e.g. [4] when only 3 sources were provided).
+_CITATION_RE = re.compile(r"\[(\d+)\]")
 
+
+def sanitize_citations(text: str, max_n: int) -> str:
+    """Remove citation markers whose number is out of range."""
+    if not text or max_n <= 0:
+        # If no sources were provided, strip all markers defensively.
+        return _CITATION_RE.sub("", text) if max_n == 0 else text
+
+    def keep(match: "re.Match[str]") -> str:
+        n = int(match.group(1))
+        return match.group(0) if 1 <= n <= max_n else ""
+
+    return _CITATION_RE.sub(keep, text)
+
+
+ai_service = AIService()

@@ -1,5 +1,5 @@
 """
-StudyBuddy AI Backend Application
+MindSpark Backend Application
 Main application package initialization
 """
 

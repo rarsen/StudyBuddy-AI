@@ -1,25 +1,36 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import AuthBrandPanel from '../components/AuthBrandPanel'
+
+function passwordStrength(pw) {
+  if (!pw) return { score: 0, label: '' }
+  let score = 0
+  if (pw.length >= 8) score++
+  if (pw.length >= 12) score++
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++
+  if (/\d/.test(pw)) score++
+  if (/[^A-Za-z0-9]/.test(pw)) score++
+  const labels = ['Too short', 'Weak', 'Okay', 'Good', 'Strong', 'Excellent']
+  return { score, label: labels[score] || '' }
+}
 
 function Register() {
   const [formData, setFormData] = useState({
     email: '',
     username: '',
     password: '',
-    full_name: ''
+    full_name: '',
   })
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  
+
   const { register } = useAuth()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
+    setFormData({ ...formData, [e.target.name]: e.target.value })
     setError('')
   }
 
@@ -44,128 +55,179 @@ function Register() {
     }
   }
 
+  const strength = passwordStrength(formData.password)
+  const strengthColors = [
+    'bg-ink-200',
+    'bg-rose-400',
+    'bg-amber-400',
+    'bg-yellow-400',
+    'bg-emerald-400',
+    'bg-emerald-500',
+  ]
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-primary-700 mb-2">
-            StudyBuddy AI
-          </h1>
-          <h2 className="text-xl text-gray-600">
-            Join Our Learning Community
-          </h2>
-          <p className="mt-4 text-gray-500">
-            Create your account and start learning with AI
-          </p>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <form className="space-y-6" onSubmit={handleSubmit}>
+    <div className="min-h-screen grid lg:grid-cols-2 bg-white">
+      <AuthBrandPanel
+        title="Start learning smarter."
+        subtitle="Create your free account and unlock your personal AI tutor across every subject."
+        highlights={[
+          'Unlimited questions, 24/7',
+          'Sessions saved and searchable',
+          'Works for homework, revision, and exams',
+        ]}
+      />
+
+      <div className="flex items-center justify-center px-6 py-12 sm:px-12">
+        <div className="w-full max-w-md animate-fade-in-up">
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-ink-500 hover:text-primary-700 mb-8">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to home
+          </Link>
+
+          <h1 className="font-display text-3xl font-bold text-ink-900">Create your account</h1>
+          <p className="mt-2 text-ink-600">Takes less than a minute.</p>
+
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              <div className="rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-4 py-3 text-sm">
                 {error}
               </div>
             )}
-            
+
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address *
+              <label htmlFor="email" className="block text-sm font-semibold text-ink-800 mb-1.5">
+                Email <span className="text-rose-500">*</span>
               </label>
               <input
                 id="email"
                 name="email"
                 type="email"
                 required
+                autoComplete="email"
                 className="input"
-                placeholder="your.email@example.com"
+                placeholder="you@example.com"
                 value={formData.email}
                 onChange={handleChange}
               />
             </div>
 
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Username *
-              </label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                minLength="3"
-                className="input"
-                placeholder="Choose a username"
-                value={formData.username}
-                onChange={handleChange}
-              />
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="username" className="block text-sm font-semibold text-ink-800 mb-1.5">
+                  Username <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required
+                  minLength="3"
+                  autoComplete="username"
+                  className="input"
+                  placeholder="mindspark"
+                  value={formData.username}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="full_name" className="block text-sm font-semibold text-ink-800 mb-1.5">
+                  Full name
+                </label>
+                <input
+                  id="full_name"
+                  name="full_name"
+                  type="text"
+                  autoComplete="name"
+                  className="input"
+                  placeholder="Optional"
+                  value={formData.full_name}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
 
             <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
-              </label>
-              <input
-                id="full_name"
-                name="full_name"
-                type="text"
-                className="input"
-                placeholder="Your full name (optional)"
-                value={formData.full_name}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="block text-sm font-semibold text-ink-800">
+                  Password <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
               <input
                 id="password"
                 name="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 minLength="8"
+                autoComplete="new-password"
                 className="input"
                 placeholder="At least 8 characters"
                 value={formData.password}
                 onChange={handleChange}
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Minimum 8 characters required
-              </p>
+
+              {formData.password && (
+                <div className="mt-2">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-1.5 flex-1 rounded-full transition-colors ${
+                          i <= strength.score ? strengthColors[strength.score] : 'bg-ink-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <div className="mt-1.5 text-xs text-ink-500">
+                    Strength: <span className="font-medium text-ink-700">{strength.label}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn btn-primary py-3 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-primary w-full py-3.5 text-base"
             >
               {loading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <>
+                  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Creating account...
-                </span>
+                  Creating account…
+                </>
               ) : (
-                'Create Account'
+                <>
+                  Create free account
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </>
               )}
             </button>
+
+            <p className="text-xs text-ink-500 text-center">
+              By signing up, you agree to our educational use terms.
+            </p>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary-600 hover:text-primary-700 font-semibold">
-                Sign in
-              </Link>
-            </p>
-          </div>
-        </div>
-
-        <div className="text-center text-sm text-gray-500">
-          <p>By signing up, you agree to our educational use terms</p>
+          <p className="mt-8 text-center text-sm text-ink-600">
+            Already have an account?{' '}
+            <Link to="/login" className="font-semibold text-primary-700 hover:text-primary-800">
+              Sign in
+            </Link>
+          </p>
         </div>
       </div>
     </div>
@@ -173,4 +235,3 @@ function Register() {
 }
 
 export default Register
-

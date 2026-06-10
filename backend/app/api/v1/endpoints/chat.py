@@ -32,7 +32,7 @@ def create_session(
     current_user: User = Depends(get_current_user)
 ):
     session = chat_service.create_session(db, current_user, session_data)
-    return ChatSessionResponse.from_orm(session)
+    return ChatSessionResponse.model_validate(session)
 
 
 @router.get(
@@ -50,7 +50,7 @@ def get_sessions(
     sessions = chat_service.get_user_sessions(
         db, current_user, skip, limit, active_only
     )
-    return [ChatSessionResponse.from_orm(s) for s in sessions]
+    return [ChatSessionResponse.model_validate(s) for s in sessions]
 
 
 @router.get(
@@ -64,7 +64,7 @@ def get_session(
     current_user: User = Depends(get_current_user)
 ):
     session = chat_service.get_session(db, session_id, current_user)
-    return ChatSessionResponse.from_orm(session)
+    return ChatSessionResponse.model_validate(session)
 
 
 @router.patch(
@@ -79,7 +79,7 @@ def update_session(
     current_user: User = Depends(get_current_user)
 ):
     session = chat_service.update_session(db, session_id, current_user, update_data)
-    return ChatSessionResponse.from_orm(session)
+    return ChatSessionResponse.model_validate(session)
 
 
 @router.delete(
@@ -125,5 +125,5 @@ def get_session_messages(
     messages = chat_service.get_session_messages(
         db, session_id, current_user, skip, limit
     )
-    return [MessageResponse.from_orm(m) for m in messages]
+    return [MessageResponse.model_validate(m) for m in messages]
 
