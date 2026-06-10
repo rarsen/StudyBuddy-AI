@@ -1,0 +1,23 @@
+# Python virtual environments (host venv must never enter the image/container)
+venv/
+.venv/
+env/
+
+# Caches & bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local env & secrets
+.env
+.env.*
+!.env.example
+
+# Misc
+*.log
+.DS_Store
+.git/
+.gitignore
