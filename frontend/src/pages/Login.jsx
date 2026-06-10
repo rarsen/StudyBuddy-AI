@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useI18n } from '../context/I18nContext'
 import AuthBrandPanel from '../components/AuthBrandPanel'
 
 function Login() {
@@ -13,6 +14,7 @@ function Login() {
   const [loading, setLoading] = useState(false)
 
   const { login } = useAuth()
+  const { t } = useI18n()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
@@ -28,46 +30,42 @@ function Login() {
       await login(formData)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed. Please try again.')
+      setError(err.response?.data?.detail || t('auth.login.failed'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-white">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-white dark:bg-ink-950">
       <AuthBrandPanel
-        title="Welcome back."
-        subtitle="Pick up your study session right where you left off."
-        highlights={[
-          'All your past chats waiting for you',
-          'Continue any subject in one click',
-          'Fast, private, and always on',
-        ]}
+        title={t('auth.login.brandTitle')}
+        subtitle={t('auth.login.brandSubtitle')}
+        highlights={t('auth.login.brandHighlights')}
       />
 
       <div className="flex items-center justify-center px-6 py-12 sm:px-12">
         <div className="w-full max-w-md animate-fade-in-up">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-ink-500 hover:text-primary-700 mb-8">
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-ink-500 dark:text-ink-400 hover:text-primary-700 dark:hover:text-primary-300 mb-8">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Back to home
+            {t('auth.backToHome')}
           </Link>
 
-          <h1 className="font-display text-3xl font-bold text-ink-900">Sign in to MindSpark</h1>
-          <p className="mt-2 text-ink-600">Welcome back — let's keep learning.</p>
+          <h1 className="font-display text-3xl font-bold text-ink-900 dark:text-ink-100">{t('auth.login.title')}</h1>
+          <p className="mt-2 text-ink-600 dark:text-ink-300">{t('auth.login.subtitle')}</p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {error && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-4 py-3 text-sm">
+              <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 px-4 py-3 text-sm">
                 {error}
               </div>
             )}
 
             <div>
-              <label htmlFor="email_or_username" className="block text-sm font-semibold text-ink-800 mb-1.5">
-                Email or username
+              <label htmlFor="email_or_username" className="block text-sm font-semibold text-ink-800 dark:text-ink-200 mb-1.5">
+                {t('auth.login.identifier')}
               </label>
               <input
                 id="email_or_username"
@@ -84,15 +82,15 @@ function Login() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="password" className="block text-sm font-semibold text-ink-800">
-                  Password
+                <label htmlFor="password" className="block text-sm font-semibold text-ink-800 dark:text-ink-200">
+                  {t('auth.login.password')}
                 </label>
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                  className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
                 >
-                  {showPassword ? 'Hide' : 'Show'}
+                  {showPassword ? t('auth.login.hide') : t('auth.login.show')}
                 </button>
               </div>
               <input
@@ -119,11 +117,11 @@ function Login() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Signing in…
+                  {t('auth.login.submitting')}
                 </>
               ) : (
                 <>
-                  Sign in
+                  {t('auth.login.submit')}
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
@@ -132,10 +130,10 @@ function Login() {
             </button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-ink-600">
-            New to MindSpark?{' '}
-            <Link to="/register" className="font-semibold text-primary-700 hover:text-primary-800">
-              Create an account
+          <p className="mt-8 text-center text-sm text-ink-600 dark:text-ink-300">
+            {t('auth.login.noAccount')}{' '}
+            <Link to="/register" className="font-semibold text-primary-700 dark:text-primary-300 hover:text-primary-800 dark:hover:text-primary-200">
+              {t('auth.login.createAccount')}
             </Link>
           </p>
         </div>

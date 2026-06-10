@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { useI18n } from '../context/I18nContext'
 
 function AuthBrandPanel({ title, subtitle, highlights = [] }) {
+  const { t } = useI18n()
   return (
     <div className="hidden lg:flex relative overflow-hidden bg-gradient-to-br from-primary-700 via-primary-600 to-accent-700 text-white">
       <div className="absolute inset-0 bg-grid opacity-20 pointer-events-none" />
@@ -47,7 +49,7 @@ function AuthBrandPanel({ title, subtitle, highlights = [] }) {
         </div>
 
         <div className="text-white/70 text-sm">
-          Educational project · Made for students
+          {t('auth.brandFooter')}
         </div>
       </div>
     </div>

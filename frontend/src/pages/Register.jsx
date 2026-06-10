@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useI18n } from '../context/I18nContext'
 import AuthBrandPanel from '../components/AuthBrandPanel'
 
-function passwordStrength(pw) {
-  if (!pw) return { score: 0, label: '' }
+// Returns a 0–5 strength score; the human-readable label is resolved via i18n.
+function passwordScore(pw) {
+  if (!pw) return 0
   let score = 0
   if (pw.length >= 8) score++
   if (pw.length >= 12) score++
   if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++
   if (/\d/.test(pw)) score++
   if (/[^A-Za-z0-9]/.test(pw)) score++
-  const labels = ['Too short', 'Weak', 'Okay', 'Good', 'Strong', 'Excellent']
-  return { score, label: labels[score] || '' }
+  return score
 }
 
 function Register() {
@@ -27,6 +28,7 @@ function Register() {
   const [loading, setLoading] = useState(false)
 
   const { register } = useAuth()
+  const { t } = useI18n()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
@@ -40,7 +42,7 @@ function Register() {
     setError('')
 
     if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long')
+      setError(t('auth.register.pwTooShort'))
       setLoading(false)
       return
     }
@@ -49,15 +51,16 @@ function Register() {
       await register(formData)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed. Please try again.')
+      setError(err.response?.data?.detail || t('auth.register.failed'))
     } finally {
       setLoading(false)
     }
   }
 
-  const strength = passwordStrength(formData.password)
+  const score = passwordScore(formData.password)
+  const strengthLabel = t('auth.register.strength')[score] || ''
   const strengthColors = [
-    'bg-ink-200',
+    'bg-ink-200 dark:bg-ink-700',
     'bg-rose-400',
     'bg-amber-400',
     'bg-yellow-400',
@@ -66,39 +69,35 @@ function Register() {
   ]
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-white">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-white dark:bg-ink-950">
       <AuthBrandPanel
-        title="Start learning smarter."
-        subtitle="Create your free account and unlock your personal AI tutor across every subject."
-        highlights={[
-          'Unlimited questions, 24/7',
-          'Sessions saved and searchable',
-          'Works for homework, revision, and exams',
-        ]}
+        title={t('auth.register.brandTitle')}
+        subtitle={t('auth.register.brandSubtitle')}
+        highlights={t('auth.register.brandHighlights')}
       />
 
       <div className="flex items-center justify-center px-6 py-12 sm:px-12">
         <div className="w-full max-w-md animate-fade-in-up">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-ink-500 hover:text-primary-700 mb-8">
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-ink-500 dark:text-ink-400 hover:text-primary-700 dark:hover:text-primary-300 mb-8">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Back to home
+            {t('auth.backToHome')}
           </Link>
 
-          <h1 className="font-display text-3xl font-bold text-ink-900">Create your account</h1>
-          <p className="mt-2 text-ink-600">Takes less than a minute.</p>
+          <h1 className="font-display text-3xl font-bold text-ink-900 dark:text-ink-100">{t('auth.register.title')}</h1>
+          <p className="mt-2 text-ink-600 dark:text-ink-300">{t('auth.register.subtitle')}</p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {error && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-4 py-3 text-sm">
+              <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 px-4 py-3 text-sm">
                 {error}
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-ink-800 mb-1.5">
-                Email <span className="text-rose-500">*</span>
+              <label htmlFor="email" className="block text-sm font-semibold text-ink-800 dark:text-ink-200 mb-1.5">
+                {t('auth.register.email')} <span className="text-rose-500">*</span>
               </label>
               <input
                 id="email"
@@ -115,8 +114,8 @@ function Register() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="username" className="block text-sm font-semibold text-ink-800 mb-1.5">
-                  Username <span className="text-rose-500">*</span>
+                <label htmlFor="username" className="block text-sm font-semibold text-ink-800 dark:text-ink-200 mb-1.5">
+                  {t('auth.register.username')} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   id="username"
@@ -133,8 +132,8 @@ function Register() {
               </div>
 
               <div>
-                <label htmlFor="full_name" className="block text-sm font-semibold text-ink-800 mb-1.5">
-                  Full name
+                <label htmlFor="full_name" className="block text-sm font-semibold text-ink-800 dark:text-ink-200 mb-1.5">
+                  {t('auth.register.fullName')}
                 </label>
                 <input
                   id="full_name"
@@ -142,7 +141,7 @@ function Register() {
                   type="text"
                   autoComplete="name"
                   className="input"
-                  placeholder="Optional"
+                  placeholder={t('auth.register.fullNamePlaceholder')}
                   value={formData.full_name}
                   onChange={handleChange}
                 />
@@ -151,15 +150,15 @@ function Register() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="password" className="block text-sm font-semibold text-ink-800">
-                  Password <span className="text-rose-500">*</span>
+                <label htmlFor="password" className="block text-sm font-semibold text-ink-800 dark:text-ink-200">
+                  {t('auth.register.password')} <span className="text-rose-500">*</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                  className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
                 >
-                  {showPassword ? 'Hide' : 'Show'}
+                  {showPassword ? t('auth.register.hide') : t('auth.register.show')}
                 </button>
               </div>
               <input
@@ -170,7 +169,7 @@ function Register() {
                 minLength="8"
                 autoComplete="new-password"
                 className="input"
-                placeholder="At least 8 characters"
+                placeholder={t('auth.register.passwordPlaceholder')}
                 value={formData.password}
                 onChange={handleChange}
               />
@@ -182,13 +181,13 @@ function Register() {
                       <div
                         key={i}
                         className={`h-1.5 flex-1 rounded-full transition-colors ${
-                          i <= strength.score ? strengthColors[strength.score] : 'bg-ink-200'
+                          i <= score ? strengthColors[score] : 'bg-ink-200 dark:bg-ink-700'
                         }`}
                       />
                     ))}
                   </div>
-                  <div className="mt-1.5 text-xs text-ink-500">
-                    Strength: <span className="font-medium text-ink-700">{strength.label}</span>
+                  <div className="mt-1.5 text-xs text-ink-500 dark:text-ink-400">
+                    {t('auth.register.strengthPrefix')} <span className="font-medium text-ink-700 dark:text-ink-200">{strengthLabel}</span>
                   </div>
                 </div>
               )}
@@ -205,11 +204,11 @@ function Register() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Creating account…
+                  {t('auth.register.submitting')}
                 </>
               ) : (
                 <>
-                  Create free account
+                  {t('auth.register.submit')}
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
@@ -217,15 +216,15 @@ function Register() {
               )}
             </button>
 
-            <p className="text-xs text-ink-500 text-center">
-              By signing up, you agree to our educational use terms.
+            <p className="text-xs text-ink-500 dark:text-ink-400 text-center">
+              {t('auth.register.terms')}
             </p>
           </form>
 
-          <p className="mt-8 text-center text-sm text-ink-600">
-            Already have an account?{' '}
-            <Link to="/login" className="font-semibold text-primary-700 hover:text-primary-800">
-              Sign in
+          <p className="mt-8 text-center text-sm text-ink-600 dark:text-ink-300">
+            {t('auth.register.haveAccount')}{' '}
+            <Link to="/login" className="font-semibold text-primary-700 dark:text-primary-300 hover:text-primary-800 dark:hover:text-primary-200">
+              {t('auth.register.signIn')}
             </Link>
           </p>
         </div>

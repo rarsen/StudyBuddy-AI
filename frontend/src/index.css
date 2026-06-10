@@ -10,7 +10,8 @@
   }
 
   body {
-    @apply bg-ink-50 text-ink-900;
+    @apply bg-ink-50 text-ink-900 dark:bg-ink-950 dark:text-ink-100
+           transition-colors duration-300;
   }
 
   h1, h2, h3, h4 {
@@ -35,21 +36,26 @@
 
   .btn-secondary {
     @apply bg-white text-ink-800 border border-ink-200 hover:border-primary-300
-           hover:text-primary-700 hover:shadow-soft;
+           hover:text-primary-700 hover:shadow-soft
+           dark:bg-ink-800 dark:text-ink-100 dark:border-ink-700
+           dark:hover:border-primary-500 dark:hover:text-primary-300;
   }
 
   .btn-ghost {
-    @apply text-ink-700 hover:text-primary-700 hover:bg-primary-50;
+    @apply text-ink-700 hover:text-primary-700 hover:bg-primary-50
+           dark:text-ink-200 dark:hover:text-primary-300 dark:hover:bg-ink-800;
   }
 
   .input {
     @apply w-full px-4 py-3 rounded-xl border border-ink-200 bg-white text-ink-900
            placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-primary-500
-           focus:border-transparent transition-all duration-200;
+           focus:border-transparent transition-all duration-200
+           dark:bg-ink-800 dark:border-ink-700 dark:text-ink-100 dark:placeholder:text-ink-500;
   }
 
   .card {
-    @apply bg-white rounded-2xl shadow-soft border border-ink-100/80 p-6;
+    @apply bg-white rounded-2xl shadow-soft border border-ink-100/80 p-6
+           dark:bg-ink-900 dark:border-ink-800;
   }
 
   .chip {
@@ -61,7 +67,8 @@
   }
 
   .glass {
-    @apply bg-white/70 backdrop-blur-xl border border-white/60;
+    @apply bg-white/70 backdrop-blur-xl border border-white/60
+           dark:bg-ink-900/70 dark:border-ink-800/60;
   }
 }
 
@@ -84,6 +91,14 @@
   background-clip: padding-box;
   border: 2px solid transparent;
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+  background-clip: padding-box;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+  background-clip: padding-box;
+}
 
 html {
   scroll-behavior: smooth;
@@ -91,7 +106,7 @@ html {
 
 /* Markdown */
 .markdown-content {
-  @apply text-ink-800 leading-relaxed;
+  @apply text-ink-800 leading-relaxed dark:text-ink-200;
 }
 .markdown-content h1 { @apply text-2xl font-bold mb-3 mt-4; }
 .markdown-content h2 { @apply text-xl font-bold mb-2 mt-3; }
@@ -103,7 +118,8 @@ html {
 .markdown-content ul li { @apply list-disc; }
 .markdown-content ol li { @apply list-decimal; }
 .markdown-content code {
-  @apply bg-ink-100 px-2 py-0.5 rounded-md text-sm font-mono text-primary-700;
+  @apply bg-ink-100 px-2 py-0.5 rounded-md text-sm font-mono text-primary-700
+         dark:bg-ink-800 dark:text-primary-300;
 }
 .markdown-content pre {
   @apply bg-ink-900 text-ink-100 p-4 rounded-xl overflow-x-auto mb-3;
@@ -112,10 +128,11 @@ html {
   @apply bg-transparent p-0 text-ink-100;
 }
 .markdown-content blockquote {
-  @apply border-l-4 border-primary-500 pl-4 italic my-3 text-ink-600;
+  @apply border-l-4 border-primary-500 pl-4 italic my-3 text-ink-600 dark:text-ink-400;
 }
 .markdown-content a {
-  @apply text-primary-600 hover:text-primary-700 underline;
+  @apply text-primary-600 hover:text-primary-700 underline
+         dark:text-primary-400 dark:hover:text-primary-300;
 }
 
 /* Grid background used on landing / hero sections */
