@@ -1,5 +1,7 @@
 # MindSpark - AI-Powered Educational Assistant
 
+> **Project plan & thesis docs:** see [`docs/`](docs/README.md). It covers scope, decisions, the implementation plan, the roadmap and the thesis plan.
+
 ## Video Usage
 
 

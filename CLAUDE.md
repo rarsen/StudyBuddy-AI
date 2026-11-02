@@ -3,6 +3,14 @@
 AI-powered educational assistant. FastAPI backend + React/Vite frontend + PostgreSQL.
 See `README.md` for full architecture, setup, and API reference.
 
+## Project plan (thesis)
+
+The thesis scope, decisions, implementation plan and thesis plan live in `docs/`.
+
+- Start with `docs/README.md`. It has the status tracker, open items and progress log.
+- Before starting work, check the current milestone in `docs/03-implementation-plan.md`.
+- When a milestone or decision changes, add an entry to the progress log in `docs/README.md`.
+
 ## Layout
 
 - `backend/` — FastAPI app (entry: `backend/app/main.py`, port 8000)
